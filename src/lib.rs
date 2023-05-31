@@ -7,10 +7,12 @@ use std::path::Path;
 use sui_transactional_test_runner::args::{
     SuiInitArgs, SuiPublishArgs, SuiRunArgs, SuiSubcommand, SuiValue, ViewObjectCommand,
 };
-use sui_transactional_test_runner::test_adapter::SuiTestAdapter;
+use sui_transactional_test_runner::test_adapter::{FakeID, SuiTestAdapter};
+use sui_protocol_config::ProtocolConfig;
 pub use sui_types;
 pub use sui_types::{object::Object, MOVE_STDLIB_ADDRESS, SUI_FRAMEWORK_ADDRESS};
 
+use move_symbol_pool::Symbol;
 use move_binary_format::file_format::CompiledModule;
 use move_command_line_common::address::ParsedAddress;
 pub use move_compiler;
@@ -22,7 +24,6 @@ use move_core_types::{
     account_address::AccountAddress,
     identifier::{IdentStr, Identifier},
     language_storage::{ModuleId, TypeTag},
-    value::MoveValue,
 };
 pub use move_transactional_test_runner;
 use move_transactional_test_runner::{
@@ -81,7 +82,8 @@ pub fn initialize<'a>(
     deps: &'a FullyCompiledProgram,
     accounts: Option<Vec<String>>,
 ) -> SuiTestAdapter<'a> {
-    let command = (InitCommand { named_addresses }, SuiInitArgs { accounts });
+    let protocol_version = Some(ProtocolConfig::get_for_max_version().version.as_u64());
+    let command = (InitCommand { named_addresses }, SuiInitArgs { accounts, protocol_version });
     let name = "init".to_string();
     let number = 0;
     let start_line = 1;
@@ -102,31 +104,32 @@ pub fn initialize<'a>(
     let default_syntax = SyntaxChoice::Source;
     let fully_compiled_program_opt = Some(deps);
 
-    let (adapter, result_opt) =
+    let (adapter, _result_opt) =
         SuiTestAdapter::init(default_syntax, fully_compiled_program_opt, init_opt);
     println!("[*] Successfully Initialized");
 
     adapter
 }
 
-pub fn publish_compiled_module(adapter: &mut SuiTestAdapter, mod_bytes: Vec<u8>) -> AccountAddress {
-    let module = CompiledModule::deserialize(&mod_bytes).unwrap();
+pub fn publish_compiled_module(adapter: &mut SuiTestAdapter, mod_bytes: Vec<u8>, module_dependencies: Vec<String>, sender: Option<String>) -> AccountAddress {
+    let mut module : Vec<(Option<Symbol>, CompiledModule)> = Vec::new();
+    let named_addr_opt: Option<Symbol> = None;
+    module.push( (named_addr_opt, CompiledModule::deserialize_with_defaults(&mod_bytes).unwrap()) );
 
-    let named_addr_opt: Option<Identifier> = None;
     let gas_budget: Option<u64> = None;
-    let extra: SuiPublishArgs = SuiPublishArgs { sender: None };
+    let extra: SuiPublishArgs = SuiPublishArgs { sender: sender, upgradeable: true, dependencies: module_dependencies};
 
     let (output, module) = adapter
-        .publish_module(module, named_addr_opt, gas_budget, extra)
+        .publish_modules(module, gas_budget, extra)
         .unwrap();
 
     println!(
         "[*] Successfully published at {:#?}",
-        module.address_identifiers[0]
+        module.first().unwrap().1.address_identifiers[0]
     );
     println!("[*] Output: {:#?} \n", output.unwrap());
 
-    module.address_identifiers[0]
+    module.first().unwrap().1.address_identifiers[0]
 }
 
 pub fn call_function(
@@ -145,10 +148,12 @@ pub fn call_function(
     let gas_budget: Option<u64> = None;
     let extra_args: SuiRunArgs = SuiRunArgs {
         sender: signer,
-        view_events: false,
+        gas_price: None,
+        protocol_version: None,
+        uncharged: true,
     };
 
-    let (output, return_values) = adapter.call_function(
+    let (output, _return_values) = adapter.call_function(
         &module_id, function, type_args, signers, args, gas_budget, extra_args,
     )?;
 
@@ -158,7 +163,7 @@ pub fn call_function(
     Ok(())
 }
 
-pub fn view_object(adapter: &mut SuiTestAdapter, id: u64) {
+pub fn view_object(adapter: &mut SuiTestAdapter, id: FakeID) {
     let arg_view = TaskInput {
         command: SuiSubcommand::ViewObject(ViewObjectCommand { id }),
         name: "blank".to_string(),
