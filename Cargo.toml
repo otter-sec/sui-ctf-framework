@@ -6,6 +6,9 @@ license = "BSD-3-Clause"
 homepage = "https://github.com/otter-sec/sui-ctf-framework"
 description = "A framework for building sui based capture the flag challenges"
 repository = "https://github.com/otter-sec/sui-ctf-framework"
+keywords = ["sui", "blockchain", "ctf", "Capture The Flag", "security", "emulation", "framework"]
+readme = "README.md"
+categories = ["concurrency", "cryptography::cryptocurrencies", "simulation"]
 
 [dependencies]
 tempfile = "3.2.0"
@@ -24,3 +27,4 @@ move-binary-format = { git = "https://github.com/MystenLabs/sui", branch = "devn
 move-command-line-common = { git = "https://github.com/MystenLabs/sui", branch = "devnet", package = "move-command-line-common" }
 move-transactional-test-runner = { git = "https://github.com/MystenLabs/sui", branch = "devnet", package = "move-transactional-test-runner" }
 move-core-types = { git = "https://github.com/MystenLabs/sui", branch = "devnet", package = "move-core-types" }
+move-bytecode-source-map = { git = "https://github.com/MystenLabs/sui", branch = "devnet", package = "move-bytecode-source-map" }

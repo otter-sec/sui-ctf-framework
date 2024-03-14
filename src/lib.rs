@@ -8,22 +8,42 @@ use std::error;
 use once_cell::sync::Lazy;
 use tempfile::NamedTempFile;
 
-use sui_transactional_test_runner::args::{
-    SuiInitArgs, SuiPublishArgs, SuiRunArgs, SuiSubcommand, SuiValue, ViewObjectCommand, ProgrammableTransactionCommand
+use sui_transactional_test_runner::{
+    args::{
+        SuiInitArgs, 
+        SuiPublishArgs, 
+        SuiRunArgs, 
+        SuiSubcommand, 
+        SuiValue, 
+        ViewObjectCommand, 
+        ProgrammableTransactionCommand
+    },
+    test_adapter::{
+        FakeID, 
+        SuiTestAdapter
+    }
 };
-use sui_transactional_test_runner::test_adapter::{FakeID, SuiTestAdapter};
-use sui_protocol_config::{ProtocolConfig, ProtocolVersion, Chain};
-pub use sui_types;
-pub use sui_types::{object::Object, MOVE_STDLIB_ADDRESS, SUI_FRAMEWORK_ADDRESS};
-
+use sui_protocol_config::{
+    ProtocolConfig, 
+    ProtocolVersion, 
+    Chain
+};
+pub use sui_types::{
+    object::Object, 
+    MOVE_STDLIB_ADDRESS, 
+    SUI_FRAMEWORK_ADDRESS
+};
 use move_symbol_pool::Symbol;
 use move_binary_format::file_format::CompiledModule;
-use move_command_line_common::address::ParsedAddress;
-use move_command_line_common::values::ParsedValue;
-pub use move_compiler;
+use move_bytecode_source_map::{source_map::SourceMap};
+use move_command_line_common::{
+    address::ParsedAddress,
+    values::ParsedValue
+};
 pub use move_compiler::{
+    diagnostics::report_diagnostics,
     shared::{NumberFormat, NumericalAddress, PackagePaths},
-    Flags, FullyCompiledProgram,
+    Flags, FullyCompiledProgram, construct_pre_compiled_lib
 };
 use move_core_types::{
     account_address::AccountAddress,
@@ -31,9 +51,8 @@ use move_core_types::{
     language_storage::{ModuleId, TypeTag},
     u256::U256,
 };
-pub use move_transactional_test_runner;
 use move_transactional_test_runner::{
-    framework::MoveTestAdapter,
+    framework::{MoveTestAdapter, MaybeNamedCompiledModule},
     tasks::{InitCommand, SyntaxChoice, TaskInput},
 };
 
@@ -63,7 +82,7 @@ pub fn get_precompiled(sui_files: &Path) -> FullyCompiledProgram {
 
     let named_address_map = NAMED_ADDRESSES.clone();
 
-    let fully_compiled_res = move_compiler::construct_pre_compiled_lib(
+    let fully_compiled_res = construct_pre_compiled_lib(
         vec![PackagePaths {
             name: None,
             paths: vec![sui_sources, sui_deps],
@@ -77,7 +96,7 @@ pub fn get_precompiled(sui_files: &Path) -> FullyCompiledProgram {
     match fully_compiled_res {
         Err((files, diags)) => {
             eprintln!("[*] Sui framework failed to compile!");
-            move_compiler::diagnostics::report_diagnostics(&files, diags)
+            report_diagnostics(&files, diags)
         }
         Ok(res) => res,
     }
@@ -89,7 +108,20 @@ pub async fn initialize<'a>(
     accounts: Option<Vec<String>>,
 ) -> SuiTestAdapter<'a> {
     let protocol_version = Some(ProtocolConfig::get_for_version(ProtocolVersion::MAX, Chain::Unknown).version.as_u64());
-    let command = (InitCommand { named_addresses }, SuiInitArgs { accounts: accounts, protocol_version: protocol_version, max_gas: None });
+    let command = (
+        InitCommand { named_addresses }, 
+        SuiInitArgs { 
+            accounts: accounts, 
+            protocol_version: protocol_version, 
+            max_gas: None,
+            shared_object_deletion: None,
+            simulator: false, // true - test_adapter.rs line 309 & 319
+            custom_validator_account: false,
+            reference_gas_price: None, // Some(234)
+            default_gas_price: None,   // Some(1000)
+            object_snapshot_min_checkpoint_lag: None,
+            object_snapshot_max_checkpoint_lag: None
+        });
     let name = "init".to_string();
     let number = 0;
     let start_line = 1;
@@ -111,33 +143,52 @@ pub async fn initialize<'a>(
     let fully_compiled_program_opt = Some(deps);
 
     let (adapter, _result_opt) =
-        SuiTestAdapter::init(default_syntax, fully_compiled_program_opt, init_opt).await;
+        SuiTestAdapter::init( default_syntax, fully_compiled_program_opt, init_opt, Path::new("") ).await;
     println!("[*] Initialization Result: {:#?}", _result_opt);
     println!("[*] Successfully Initialized");
 
     adapter
 }
 
-pub async fn publish_compiled_module(adapter: &mut SuiTestAdapter<'_>, mod_bytes: Vec<u8>, module_dependencies: Vec<String>, sender: Option<String>) -> AccountAddress {
-    let mut module : Vec<(Option<Symbol>, CompiledModule)> = Vec::new();
+pub async fn publish_compiled_module(
+    adapter: &mut SuiTestAdapter<'_>, 
+    mod_bytes: Vec<u8>, 
+    module_dependencies: Vec<String>, 
+    sender: Option<String>
+) -> AccountAddress {
+    let mut modules : Vec<MaybeNamedCompiledModule> = Vec::new();
+    let module : CompiledModule = CompiledModule::deserialize_with_defaults(&mod_bytes).unwrap();
     let named_addr_opt: Option<Symbol> = None;
-    module.push( (named_addr_opt, CompiledModule::deserialize_with_defaults(&mod_bytes).unwrap()) );
+    let source_map : Option<SourceMap> = None;
+    
+    let maybe_ncm = MaybeNamedCompiledModule {
+        named_address: named_addr_opt,
+        module: module,
+        source_map: source_map,
+    };
+    
+    modules.push( maybe_ncm );
 
     let gas_budget: Option<u64> = None;
-    let extra: SuiPublishArgs = SuiPublishArgs { sender: sender, upgradeable: true, dependencies: module_dependencies};
+    let extra: SuiPublishArgs = SuiPublishArgs { 
+        sender: sender, 
+        upgradeable: true, 
+        dependencies: module_dependencies,
+        gas_price: None
+    };
 
-    let (output, module) = adapter
-        .publish_modules(module, gas_budget, extra)
+    let (output, modules) = adapter
+        .publish_modules(modules, gas_budget, extra)
         .await
         .unwrap();
 
     println!(
         "[*] Successfully published at {:#?}",
-        module.first().unwrap().1.address_identifiers[0]
+        modules.first().unwrap().module.address_identifiers[0]
     );
     println!("[*] Output: {:#?} \n", output.unwrap());
 
-    module.first().unwrap().1.address_identifiers[0]
+    modules.first().unwrap().module.address_identifiers[0]
 }
 
 pub async fn call_function(
@@ -170,7 +221,10 @@ pub async fn call_function(
     Ok(())
 }
 
-pub async fn view_object(adapter: &mut SuiTestAdapter<'_>, id: FakeID) {
+pub async fn view_object(
+    adapter: &mut SuiTestAdapter<'_>, 
+    id: FakeID
+) {
     let arg_view = TaskInput {
         command: SuiSubcommand::ViewObject(ViewObjectCommand { id }),
         name: "blank".to_string(),
@@ -187,7 +241,12 @@ pub async fn view_object(adapter: &mut SuiTestAdapter<'_>, id: FakeID) {
     println!("[*] Output Call: {:#?}", output.unwrap());
 }
 
-pub async fn fund_account(adapter: &mut SuiTestAdapter<'_>, sender: String, amount: u64, account_address: String) {
+pub async fn fund_account(
+    adapter: &mut SuiTestAdapter<'_>, 
+    sender: String, 
+    amount: u64, 
+    account_address: String
+) {
     let mut input = Vec::new();
     input.push( ParsedValue::InferredNum(U256::from(amount)) );
     input.push( ParsedValue::Address(ParsedAddress::Named(account_address.clone())) );
