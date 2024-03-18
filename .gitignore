@@ -1,0 +1,20 @@
+# OSX
+.DS_Store
+
+# Rust build directory
+**/target
+.pre-commit*
+
+# Move build directory
+build
+storage
+
+# Move-related files
+Move.lock
+.trace
+.coverage_map.mvcov
+
+# IDE
+**/.history/
+**/.vscode/
+**/.idea/

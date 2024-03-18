@@ -69,5 +69,4 @@ let ret_val = sui_ctf_framework::call_function(
     Some("solver".to_string()),
 ).await;
 println!("[SERVER] Return value {:#?}", ret_val);
-println!("");
-``
+```

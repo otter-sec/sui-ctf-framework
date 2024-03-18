@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::sync::Arc;
 use std::io::Write;
 use std::fs::File;
 use std::assert;
@@ -106,7 +107,7 @@ pub async fn initialize<'a>(
     named_addresses: Vec<(String, NumericalAddress)>,
     deps: &'a FullyCompiledProgram,
     accounts: Option<Vec<String>>,
-) -> SuiTestAdapter<'a> {
+) -> SuiTestAdapter {
     let protocol_version = Some(ProtocolConfig::get_for_version(ProtocolVersion::MAX, Chain::Unknown).version.as_u64());
     let command = (
         InitCommand { named_addresses }, 
@@ -140,7 +141,7 @@ pub async fn initialize<'a>(
     });
 
     let default_syntax = SyntaxChoice::Source;
-    let fully_compiled_program_opt = Some(deps);
+    let fully_compiled_program_opt = Some(Arc::new(deps.clone()));
 
     let (adapter, _result_opt) =
         SuiTestAdapter::init( default_syntax, fully_compiled_program_opt, init_opt, Path::new("") ).await;
@@ -151,7 +152,7 @@ pub async fn initialize<'a>(
 }
 
 pub async fn publish_compiled_module(
-    adapter: &mut SuiTestAdapter<'_>, 
+    adapter: &mut SuiTestAdapter, 
     mod_bytes: Vec<u8>, 
     module_dependencies: Vec<String>, 
     sender: Option<String>
@@ -192,7 +193,7 @@ pub async fn publish_compiled_module(
 }
 
 pub async fn call_function(
-    adapter: &mut SuiTestAdapter<'_>,
+    adapter: &mut SuiTestAdapter,
     mod_addr: AccountAddress,
     mod_name: &str,
     fun_name: &str,
@@ -222,7 +223,7 @@ pub async fn call_function(
 }
 
 pub async fn view_object(
-    adapter: &mut SuiTestAdapter<'_>, 
+    adapter: &mut SuiTestAdapter, 
     id: FakeID
 ) {
     let arg_view = TaskInput {
@@ -242,7 +243,7 @@ pub async fn view_object(
 }
 
 pub async fn fund_account(
-    adapter: &mut SuiTestAdapter<'_>, 
+    adapter: &mut SuiTestAdapter, 
     sender: String, 
     amount: u64, 
     account_address: String
