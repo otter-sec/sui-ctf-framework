@@ -21,7 +21,8 @@ use sui_transactional_test_runner::{
     },
     test_adapter::{
         FakeID, 
-        SuiTestAdapter
+        SuiTestAdapter,
+        PRE_COMPILED
     }
 };
 use sui_protocol_config::{
@@ -53,7 +54,7 @@ use move_core_types::{
     u256::U256,
 };
 use move_transactional_test_runner::{
-    framework::{MoveTestAdapter, MaybeNamedCompiledModule},
+    framework::{MoveTestAdapter, MaybeNamedCompiledModule, store_modules},
     tasks::{InitCommand, SyntaxChoice, TaskInput},
 };
 
@@ -108,7 +109,8 @@ pub async fn initialize<'a>(
     deps: &'a FullyCompiledProgram,
     accounts: Option<Vec<String>>,
 ) -> SuiTestAdapter {
-    let protocol_version = Some(ProtocolConfig::get_for_version(ProtocolVersion::MAX, Chain::Unknown).version.as_u64());
+    // let protocol_version = Some(ProtocolConfig::get_for_version(ProtocolVersion::MAX, Chain::Unknown).version.as_u64());
+    let protocol_version = None;
     let command = (
         InitCommand { named_addresses }, 
         SuiInitArgs { 
@@ -116,10 +118,10 @@ pub async fn initialize<'a>(
             protocol_version: protocol_version, 
             max_gas: None,
             shared_object_deletion: None,
-            simulator: false, // true - test_adapter.rs line 309 & 319
+            simulator: true, 
             custom_validator_account: false,
-            reference_gas_price: None, // Some(234)
-            default_gas_price: None,   // Some(1000)
+            reference_gas_price: None,
+            default_gas_price: None, 
             object_snapshot_min_checkpoint_lag: None,
             object_snapshot_max_checkpoint_lag: None
         });
@@ -141,7 +143,7 @@ pub async fn initialize<'a>(
     });
 
     let default_syntax = SyntaxChoice::Source;
-    let fully_compiled_program_opt = Some(Arc::new(deps.clone()));
+    let fully_compiled_program_opt = Some(Arc::new(PRE_COMPILED.clone()));
 
     let (adapter, _result_opt) =
         SuiTestAdapter::init( default_syntax, fully_compiled_program_opt, init_opt, Path::new("") ).await;
@@ -153,23 +155,10 @@ pub async fn initialize<'a>(
 
 pub async fn publish_compiled_module(
     adapter: &mut SuiTestAdapter, 
-    mod_bytes: Vec<u8>, 
+    modules: Vec<MaybeNamedCompiledModule>, 
     module_dependencies: Vec<String>, 
     sender: Option<String>
 ) -> AccountAddress {
-    let mut modules : Vec<MaybeNamedCompiledModule> = Vec::new();
-    let module : CompiledModule = CompiledModule::deserialize_with_defaults(&mod_bytes).unwrap();
-    let named_addr_opt: Option<Symbol> = None;
-    let source_map : Option<SourceMap> = None;
-    
-    let maybe_ncm = MaybeNamedCompiledModule {
-        named_address: named_addr_opt,
-        module: module,
-        source_map: source_map,
-    };
-    
-    modules.push( maybe_ncm );
-
     let gas_budget: Option<u64> = None;
     let extra: SuiPublishArgs = SuiPublishArgs { 
         sender: sender, 
@@ -183,13 +172,19 @@ pub async fn publish_compiled_module(
         .await
         .unwrap();
 
+    let published_address = modules.first().unwrap().module.address_identifiers[0];
+
+    let default_syntax = SyntaxChoice::Source;
+    let data = NamedTempFile::new().unwrap();
+    store_modules(adapter, default_syntax, data, modules);
+
     println!(
         "[*] Successfully published at {:#?}",
-        modules.first().unwrap().module.address_identifiers[0]
+        published_address
     );
     println!("[*] Output: {:#?} \n", output.unwrap());
 
-    modules.first().unwrap().module.address_identifiers[0]
+    published_address
 }
 
 pub async fn call_function(
@@ -198,11 +193,11 @@ pub async fn call_function(
     mod_name: &str,
     fun_name: &str,
     args: Vec<SuiValue>,
+    type_args: Vec<TypeTag>,
     signer: Option<String>,
 ) -> Result<(), Box<dyn error::Error>> {
     let module_id: ModuleId = ModuleId::new(mod_addr, Identifier::new(mod_name).unwrap());
     let function: &IdentStr = IdentStr::new(fun_name).unwrap();
-    let type_args: Vec<TypeTag> = Vec::new();
     let signers: Vec<ParsedAddress> = Vec::new();
 
     let gas_budget: Option<u64> = None;
@@ -228,8 +223,8 @@ pub async fn view_object(
 ) {
     let arg_view = TaskInput {
         command: SuiSubcommand::ViewObject(ViewObjectCommand { id }),
-        name: "blank".to_string(),
-        number: 0,
+        name: "view-object".to_string(),
+        number: 5,
         start_line: 1,
         command_lines_stop: 1,
         stop_line: 1,
