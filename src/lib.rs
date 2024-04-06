@@ -123,7 +123,8 @@ pub async fn initialize<'a>(
             reference_gas_price: None,
             default_gas_price: None, 
             object_snapshot_min_checkpoint_lag: None,
-            object_snapshot_max_checkpoint_lag: None
+            object_snapshot_max_checkpoint_lag: None,
+            flavor: None
         });
     let name = "init".to_string();
     let number = 0;
