@@ -16,15 +16,15 @@ once_cell = "1.17.1"
 clap = { version = "3.1.8", features = ["derive"] }
 diesel-async = { version = "0.3.0", features = ["deadpool", "postgres"] }
 
-sui-protocol-config = { git = "https://github.com/MystenLabs/sui", rev = "36d1b61e76be16687baeb5521980e1ac4e885d70", package = "sui-protocol-config"}
-sui-types = { git = "https://github.com/MystenLabs/sui", rev = "36d1b61e76be16687baeb5521980e1ac4e885d70", package = "sui-types"}
-sui-transactional-test-runner = { git = "https://github.com/MystenLabs/sui", rev = "36d1b61e76be16687baeb5521980e1ac4e885d70", package = "sui-transactional-test-runner"}
+sui-protocol-config = { git = "https://github.com/MystenLabs/sui", rev = "10da1ccdde8b12e700a7bc22dddf2992f532bd00", package = "sui-protocol-config"}
+sui-types = { git = "https://github.com/MystenLabs/sui", rev = "10da1ccdde8b12e700a7bc22dddf2992f532bd00", package = "sui-types"}
+sui-transactional-test-runner = { git = "https://github.com/MystenLabs/sui", rev = "10da1ccdde8b12e700a7bc22dddf2992f532bd00", package = "sui-transactional-test-runner"}
 
-move-symbol-pool = { git = "https://github.com/MystenLabs/sui", rev = "36d1b61e76be16687baeb5521980e1ac4e885d70", package = "move-symbol-pool" }
-move-stdlib = { git = "https://github.com/MystenLabs/sui", rev = "36d1b61e76be16687baeb5521980e1ac4e885d70", package = "move-stdlib" }
-move-compiler = { git = "https://github.com/MystenLabs/sui", rev = "36d1b61e76be16687baeb5521980e1ac4e885d70", package = "move-compiler" }
-move-binary-format = { git = "https://github.com/MystenLabs/sui", rev = "36d1b61e76be16687baeb5521980e1ac4e885d70", package = "move-binary-format" }
-move-command-line-common = { git = "https://github.com/MystenLabs/sui", rev = "36d1b61e76be16687baeb5521980e1ac4e885d70", package = "move-command-line-common" }
-move-transactional-test-runner = { git = "https://github.com/MystenLabs/sui", rev = "36d1b61e76be16687baeb5521980e1ac4e885d70", package = "move-transactional-test-runner" }
-move-core-types = { git = "https://github.com/MystenLabs/sui", rev = "36d1b61e76be16687baeb5521980e1ac4e885d70", package = "move-core-types" }
-move-bytecode-source-map = { git = "https://github.com/MystenLabs/sui", rev = "36d1b61e76be16687baeb5521980e1ac4e885d70", package = "move-bytecode-source-map" }
+move-symbol-pool = { git = "https://github.com/MystenLabs/sui", rev = "10da1ccdde8b12e700a7bc22dddf2992f532bd00", package = "move-symbol-pool" }
+move-stdlib = { git = "https://github.com/MystenLabs/sui", rev = "10da1ccdde8b12e700a7bc22dddf2992f532bd00", package = "move-stdlib" }
+move-compiler = { git = "https://github.com/MystenLabs/sui", rev = "10da1ccdde8b12e700a7bc22dddf2992f532bd00", package = "move-compiler" }
+move-binary-format = { git = "https://github.com/MystenLabs/sui", rev = "10da1ccdde8b12e700a7bc22dddf2992f532bd00", package = "move-binary-format" }
+move-command-line-common = { git = "https://github.com/MystenLabs/sui", rev = "10da1ccdde8b12e700a7bc22dddf2992f532bd00", package = "move-command-line-common" }
+move-transactional-test-runner = { git = "https://github.com/MystenLabs/sui", rev = "10da1ccdde8b12e700a7bc22dddf2992f532bd00", package = "move-transactional-test-runner" }
+move-core-types = { git = "https://github.com/MystenLabs/sui", rev = "10da1ccdde8b12e700a7bc22dddf2992f532bd00", package = "move-core-types" }
+move-bytecode-source-map = { git = "https://github.com/MystenLabs/sui", rev = "10da1ccdde8b12e700a7bc22dddf2992f532bd00", package = "move-bytecode-source-map" }
