@@ -25,19 +25,11 @@ use sui_transactional_test_runner::{
         PRE_COMPILED
     }
 };
-use sui_protocol_config::{
-    ProtocolConfig, 
-    ProtocolVersion, 
-    Chain
-};
 pub use sui_types::{
     object::Object, 
     MOVE_STDLIB_ADDRESS, 
     SUI_FRAMEWORK_ADDRESS
 };
-use move_symbol_pool::Symbol;
-use move_binary_format::file_format::CompiledModule;
-use move_bytecode_source_map::{source_map::SourceMap};
 use move_command_line_common::{
     address::ParsedAddress,
     values::ParsedValue
@@ -106,7 +98,6 @@ pub fn get_precompiled(sui_files: &Path) -> FullyCompiledProgram {
 
 pub async fn initialize<'a>(
     named_addresses: Vec<(String, NumericalAddress)>,
-    deps: &'a FullyCompiledProgram,
     accounts: Option<Vec<String>>,
 ) -> SuiTestAdapter {
     // let protocol_version = Some(ProtocolConfig::get_for_version(ProtocolVersion::MAX, Chain::Unknown).version.as_u64());
@@ -123,7 +114,8 @@ pub async fn initialize<'a>(
             reference_gas_price: None,
             default_gas_price: None, 
             object_snapshot_min_checkpoint_lag: None,
-            object_snapshot_max_checkpoint_lag: None
+            object_snapshot_max_checkpoint_lag: None,
+            flavor: None
         });
     let name = "init".to_string();
     let number = 0;
@@ -220,7 +212,7 @@ pub async fn call_function(
 pub async fn view_object(
     adapter: &mut SuiTestAdapter, 
     id: FakeID
-) {
+) -> String {
     let arg_view = TaskInput {
         command: SuiSubcommand::ViewObject(ViewObjectCommand { id }),
         name: "view-object".to_string(),
@@ -234,7 +226,9 @@ pub async fn view_object(
     let output = adapter.handle_subcommand(arg_view).await.unwrap();
 
     println!("[*] Successfully viewed object {:#?}", id);
-    println!("[*] Output Call: {:#?}", output.unwrap());
+    // println!("[*] Output Call: {:#?}", output.unwrap());
+
+    output.unwrap()
 }
 
 pub async fn fund_account(
