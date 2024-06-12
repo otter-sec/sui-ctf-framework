@@ -84,6 +84,7 @@ pub fn get_precompiled(sui_files: &Path) -> FullyCompiledProgram {
         }],
         None,
         Flags::empty(),
+        None,
     )
     .unwrap();
 
