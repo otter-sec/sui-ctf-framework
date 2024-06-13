@@ -188,7 +188,7 @@ pub async fn call_function(
     args: Vec<SuiValue>,
     type_args: Vec<TypeTag>,
     signer: Option<String>,
-) -> Result<(), Box<dyn error::Error>> {
+) -> Result<Option<String>, Box<dyn error::Error>> {
     let module_id: ModuleId = ModuleId::new(mod_addr, Identifier::new(mod_name).unwrap());
     let function: &IdentStr = IdentStr::new(fun_name).unwrap();
     let signers: Vec<ParsedAddress> = Vec::new();
@@ -200,14 +200,17 @@ pub async fn call_function(
         summarize: false,
     };
 
-    let (output, _return_values) = adapter.call_function(
+    match adapter.call_function(
         &module_id, function, type_args, signers, args, gas_budget, extra_args,
-    ).await.unwrap();
+    ).await {
+        Ok((output, _return_values)) => {
+            println!("[*] Successfully called {:#?}", fun_name);
+            println!("[*] Output Call: {:#?}", output.clone().unwrap_or("<empty>".to_string()));
 
-    println!("[*] Successfully called {:#?}", fun_name);
-    println!("[*] Output Call: {:#?}", output.unwrap());
-
-    Ok(())
+            Ok(output)
+        }
+        Err(error) => Err(error.into())
+    }
 }
 
 pub async fn view_object(
