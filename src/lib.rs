@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 use std::sync::Arc;
 use std::io::Write;
@@ -8,6 +8,7 @@ use std::error;
 
 use once_cell::sync::Lazy;
 use tempfile::NamedTempFile;
+use serde_json::Value;
 
 use sui_transactional_test_runner::{
     args::{
@@ -216,7 +217,7 @@ pub async fn call_function(
 pub async fn view_object(
     adapter: &mut SuiTestAdapter, 
     id: FakeID
-) -> String {
+) -> serde_json::Value {
     let arg_view = TaskInput {
         command: SuiSubcommand::ViewObject(ViewObjectCommand { id }),
         name: "view-object".to_string(),
@@ -230,9 +231,73 @@ pub async fn view_object(
     let output = adapter.handle_subcommand(arg_view).await.unwrap();
 
     println!("[*] Successfully viewed object {:#?}", id);
-    // println!("[*] Output Call: {:#?}", output.unwrap());
+    
+    let output_str = output.unwrap();
+    let parsed_output = parse_output(&output_str);
 
-    output.unwrap()
+    parsed_output
+}
+
+fn parse_output(output: &str) -> Value {
+    let mut lines = output.lines();
+    let mut result = serde_json::Map::new();
+
+    while let Some(line) = lines.next() {
+        if let Some((key, value)) = line.split_once(": ") {
+            let key = key.trim().to_string();
+            let value = value.trim();
+
+            if value.ends_with('{') {
+                let nested_object = parse_nested_object(&mut lines, value);
+                result.insert(key, nested_object);
+            } else {
+                result.insert(key, Value::String(value.to_string()));
+            }
+        }
+    }
+
+    Value::Object(result)
+}
+
+fn parse_nested_object(lines: &mut std::str::Lines, initial_value: &str) -> Value {
+    let mut nested_result = serde_json::Map::new();
+    let mut buffer = String::new();
+
+    if !initial_value.trim_end().ends_with('}') {
+        buffer.push_str(initial_value);
+    }
+
+    while let Some(line) = lines.next() {
+        buffer.push_str("\n");
+        buffer.push_str(line.trim());
+
+        if line.trim().ends_with('}') {
+            break;
+        }
+    }
+
+    let inner_content = buffer
+        .trim_start_matches('{')
+        .trim_end_matches('}')
+        .trim();
+
+    let mut inner_lines = inner_content.lines();
+
+    while let Some(line) = inner_lines.next() {
+        if let Some((key, value)) = line.split_once(": ") {
+            let key = key.trim().to_string();
+            let value = value.trim();
+
+            if value.ends_with('{') {
+                let nested_object = parse_nested_object(&mut inner_lines, value);
+                nested_result.insert(key, nested_object);
+            } else {
+                nested_result.insert(key, Value::String(value.to_string()));
+            }
+        }
+    }
+
+    Value::Object(nested_result)
 }
 
 pub async fn fund_account(

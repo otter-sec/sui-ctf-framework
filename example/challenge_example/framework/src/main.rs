@@ -7,6 +7,8 @@ use std::net::{TcpListener, TcpStream};
 use std::path::Path;
 use std::str::FromStr;
 
+use serde_json::Value;
+
 use tokio;
 
 use move_transactional_test_runner::framework::{MaybeNamedCompiledModule};
@@ -56,8 +58,17 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
     ).await;
 
     // Check Admin Account
-    let object_output1 = sui_ctf_framework::view_object(&mut adapter, FakeID::Enumerated(0, 0)).await;
+    let object_output1 : Value = sui_ctf_framework::view_object(&mut adapter, FakeID::Enumerated(0, 0)).await;
     println!("Object Output: {:#?}", object_output1);
+    
+    let bytes_str = object_output1.get("Contents")
+    .and_then(|contents| contents.get("id"))
+    .and_then(|id| id.get("id"))
+    .and_then(|inner_id| inner_id.get("bytes"))
+    .and_then(|bytes| bytes.as_str())
+    .unwrap();
+
+    println!("Objet Bytes: {}", bytes_str);
 
     let mut mncp_modules : Vec<MaybeNamedCompiledModule> = Vec::new();
 
@@ -241,7 +252,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
 
     // Validate Solution
     match sol_ret {
-        Ok(()) => {
+        Ok(_) => {
             println!("[SERVER] Correct Solution!");
             println!("");
             if let Ok(flag) = env::var("FLAG") {
