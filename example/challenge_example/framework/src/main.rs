@@ -11,12 +11,11 @@ use serde_json::Value;
 
 use tokio;
 
-use move_transactional_test_runner::framework::{MaybeNamedCompiledModule};
+use move_transactional_test_runner::framework::{MaybeNamedCompiledModule, MoveTestAdapter};
 use move_bytecode_source_map::{source_map::SourceMap, utils::source_map_from_file};
 use move_binary_format::file_format::CompiledModule;
 use move_symbol_pool::Symbol;
 use move_core_types::{
-    ident_str, 
     account_address::AccountAddress, 
     language_storage::{TypeTag, StructTag}};
 
@@ -58,8 +57,17 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
     ).await;
 
     // Check Admin Account
-    let object_output1 : Value = sui_ctf_framework::view_object(&mut adapter, FakeID::Enumerated(0, 0)).await;
-    println!("Object Output: {:#?}", object_output1);
+    let object_output1 : Value = match sui_ctf_framework::view_object(&mut adapter, FakeID::Enumerated(0, 0)).await {
+        Ok(output) => {
+            println!("Object Output: {:#?}", output);
+            output.unwrap()
+        }
+        Err(_error) => {
+            let _ = adapter.cleanup_resources().await;
+            println!("[SERVER] Error viewing the object with ID 0:0");
+            return Err("error when viewing the object with ID 0:0".into())
+        }
+    };
     
     let bytes_str = object_output1.get("Contents")
     .and_then(|contents| contents.get("id"))
@@ -81,9 +89,22 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
         let src_path = format!("./chall/build/challenge/source_maps/{}.mvsm", module);
         let mod_bytes: Vec<u8> = std::fs::read(mod_path)?;
 
-        let module : CompiledModule = CompiledModule::deserialize_with_defaults(&mod_bytes).unwrap();
+        let module: CompiledModule = match CompiledModule::deserialize_with_defaults(&mod_bytes) {
+            Ok(data) => data,
+            Err(e) => {
+                let _ = adapter.cleanup_resources().await;
+                return Err(Box::new(e))
+            }
+        }; 
         let named_addr_opt: Option<Symbol> = Some(Symbol::from("challenge"));
-        let source_map : Option<SourceMap> = Some(source_map_from_file(Path::new(&src_path)).unwrap());
+        let source_map: Option<SourceMap> = match source_map_from_file(Path::new(&src_path)) {
+            Ok(data) => Some(data),
+            Err(e) => {
+                let _ = adapter.cleanup_resources().await;
+                println!("error: {:?}, src_path: {}", e, src_path);
+                return Err("error when generating source map".into())
+            }
+        };
         
         let maybe_ncm = MaybeNamedCompiledModule {
             named_address: named_addr_opt,
@@ -96,13 +117,22 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
     }
 
     // Publish Challenge Module
-    let mut chall_dependencies: Vec<String> = Vec::new();
-    let chall_addr = sui_ctf_framework::publish_compiled_module(
+    let chall_dependencies: Vec<String> = Vec::new();
+    let chall_addr = match sui_ctf_framework::publish_compiled_module(
         &mut adapter,
         mncp_modules,
         chall_dependencies,
         Some(String::from("challenger")),
-    ).await;
+    ).await {
+        Some(addr) => addr,
+        None => {
+            stream.write("[SERVER] Error publishing module".as_bytes()).unwrap();
+            // drop(stream);
+            let _ = adapter.cleanup_resources().await;
+            return Ok(());
+        }
+    };
+
     deployed_modules.push(chall_addr);
     println!("[SERVER] Module published at: {:?}", chall_addr); 
 
@@ -137,12 +167,21 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
     }; 
     mncp_solution.push( maybe_ncm );
 
-    let sol_addr = sui_ctf_framework::publish_compiled_module(
+    let sol_addr = match sui_ctf_framework::publish_compiled_module(
         &mut adapter,
         mncp_solution,
         sol_dependencies,
         Some(String::from("solver")),
-    ).await;
+    ).await {
+        Some(addr) => addr,
+        None => {
+            stream.write("[SERVER] Error publishing module".as_bytes()).unwrap();
+            // close tcp socket
+            drop(stream);
+            let _ = adapter.cleanup_resources().await;
+            return Ok(());
+        }
+    };
     println!("[SERVER] Solution published at: {:?}", sol_addr);
 
     // Send Solution Address
@@ -183,7 +222,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
     type_args.push(type2); 
 
     // Call Add Liquidity Function
-    let ret_val = sui_ctf_framework::call_function(
+    let ret_val = match sui_ctf_framework::call_function(
         &mut adapter,
         chall_addr,
         "OtterSwap",
@@ -191,7 +230,14 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
         args_liq,
         type_args,
         Some("challenger".to_string()),
-    ).await;
+    ).await {
+        Ok(output) => output,
+        Err(e) => {
+            let _ = adapter.cleanup_resources().await;
+            println!("[SERVER] error: {e}");
+            return Err("error during call to Otter::register".into())
+        }
+    };
     println!("[SERVER] Return value {:#?}", ret_val);
     println!("");
 
@@ -219,7 +265,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
     type_args_sol.push(sol_type2); 
 
     // Call solve Function
-    let ret_val = sui_ctf_framework::call_function(
+    let ret_val = match sui_ctf_framework::call_function(
         &mut adapter,
         sol_addr,
         "gringotts_solution",
@@ -227,7 +273,14 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
         args_sol,
         type_args_sol,
         Some("solver".to_string()),
-    ).await;
+    ).await {
+        Ok(output) => output,
+        Err(e) => {
+            let _ = adapter.cleanup_resources().await;
+            println!("[SERVER] error: {e}");
+            return Err("error during call to Otter::register".into())
+        }
+    };
     println!("[SERVER] Return value {:#?}", ret_val);
     println!("");
 
@@ -236,9 +289,10 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
     let arg_ob2 = SuiValue::Object(FakeID::Enumerated(5, 0), None);
     args2.push(arg_ob2);
 
-    let mut type_args_valid : Vec<TypeTag> = Vec::new();
+    let type_args_valid : Vec<TypeTag> = Vec::new();
 
-    let sol_ret = sui_ctf_framework::call_function(
+    // Validate Solution
+    let _sol_ret = match sui_ctf_framework::call_function(
         &mut adapter,
         chall_addr,
         "merch_store",
@@ -246,13 +300,8 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
         args2,
         type_args_valid,
         Some("solver".to_string()),
-    ).await;
-    println!("[SERVER] Return value {:#?}", sol_ret);
-    println!("");
-
-    // Validate Solution
-    match sol_ret {
-        Ok(_) => {
+    ).await {
+        Ok(_output) => {
             println!("[SERVER] Correct Solution!");
             println!("");
             if let Ok(flag) = env::var("FLAG") {
@@ -262,13 +311,15 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
                 stream.write("[SERVER] Flag not found, please contact admin".as_bytes()).unwrap();
             }
         }
-        Err(_error) => {
-            println!("[SERVER] Invalid Solution!");
-            println!("");
+        Err(error) => {
             stream.write("[SERVER] Invalid Solution!".as_bytes()).unwrap();
+            let _ = adapter.cleanup_resources().await;
+            println!("[SERVER] error: {}", error);
+            return Err("Error during call to merch_store::has_flag".into())
         }
     };
 
+    let _ = adapter.cleanup_resources().await;
     Ok(())
 }
 
@@ -285,12 +336,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         match stream {
             Ok(stream) => {
                 println!("[SERVER] New connection: {}", stream.peer_addr()?);
-                    let result = local.run_until( async move {
+                    let _ = local.run_until( async move {
                         tokio::task::spawn_local( async {
                             handle_client(stream).await.unwrap();
                         }).await.unwrap();
                     }).await;
-                    println!("[SERVER] Result: {:?}", result);
             }
             Err(e) => {
                 println!("[SERVER] Error: {}", e);

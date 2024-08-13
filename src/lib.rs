@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::io::Write;
@@ -152,7 +152,7 @@ pub async fn publish_compiled_module(
     modules: Vec<MaybeNamedCompiledModule>, 
     module_dependencies: Vec<String>, 
     sender: Option<String>
-) -> AccountAddress {
+) -> Option<AccountAddress> {
     let gas_budget: Option<u64> = None;
     let extra: SuiPublishArgs = SuiPublishArgs { 
         sender: sender, 
@@ -161,10 +161,13 @@ pub async fn publish_compiled_module(
         gas_price: None
     };
 
-    let (output, modules) = adapter
-        .publish_modules(modules, gas_budget, extra)
-        .await
-        .unwrap();
+    let (output, modules) = match adapter.publish_modules(modules, gas_budget, extra).await {
+        Ok(result) => result,
+        Err(e) => {
+            eprintln!("[!] Failed to publish modules: {:?}", e);
+            return None;
+        }
+    };
 
     let published_address = modules.first().unwrap().module.address_identifiers[0];
 
@@ -178,7 +181,7 @@ pub async fn publish_compiled_module(
     );
     println!("[*] Output: {:#?} \n", output.unwrap());
 
-    published_address
+    Some(published_address)
 }
 
 pub async fn call_function(
@@ -217,7 +220,7 @@ pub async fn call_function(
 pub async fn view_object(
     adapter: &mut SuiTestAdapter, 
     id: FakeID
-) -> serde_json::Value {
+) -> Result<Option<serde_json::Value>, Box<dyn error::Error>> {
     let arg_view = TaskInput {
         command: SuiSubcommand::ViewObject(ViewObjectCommand { id }),
         name: "view-object".to_string(),
@@ -228,14 +231,17 @@ pub async fn view_object(
         data: None,
     };
 
-    let output = adapter.handle_subcommand(arg_view).await.unwrap();
-
-    println!("[*] Successfully viewed object {:#?}", id);
-    
-    let output_str = output.unwrap();
-    let parsed_output = parse_output(&output_str);
-
-    parsed_output
+    match adapter.handle_subcommand(arg_view).await {
+        Ok(out) => {
+            println!("[*] Successfully viewed object {:#?}", id);
+            let parsed_output = parse_output(&out.unwrap());
+            return Ok(Some(parsed_output));
+        }
+        Err(error) => {
+            eprintln!("[!] Failed to view object: {:?}", error);
+            return Err(error.into());
+        }
+    };
 }
 
 fn parse_output(output: &str) -> Value {
@@ -332,8 +338,15 @@ pub async fn fund_account(
         data: Some(temp_file),
     };
 
-    let output = adapter.handle_subcommand(arg_view).await.unwrap();
-
-    println!("[*] Successfully funded Address {:#?} with {:#?}", account_address, amount);
-    println!("[*] Output Call: {:#?}", output.unwrap());
+    match adapter.handle_subcommand(arg_view).await {
+        Ok(out) => {
+            println!("[*] Successfully funded Address {:#?} with {:#?}", account_address, amount);
+            println!("[*] Output Call: {:#?}", out.unwrap());
+        }
+        Err(error) => {
+            eprintln!("[!] Failed to view object: {:?}", error);
+            return;
+        }
+    };
+    
 }
