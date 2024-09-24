@@ -125,6 +125,7 @@ pub async fn initialize<'a>(
     let command_lines_stop = 1;
     let stop_line = 1;
     let data = None;
+    let task_text = "".to_string();
 
     let init_opt: Option<TaskInput<(InitCommand, SuiInitArgs)>> = Some(TaskInput {
         command,
@@ -134,6 +135,7 @@ pub async fn initialize<'a>(
         command_lines_stop,
         stop_line,
         data,
+        task_text,
     });
 
     let default_syntax = SyntaxChoice::Source;
@@ -229,6 +231,7 @@ pub async fn view_object(
         command_lines_stop: 1,
         stop_line: 1,
         data: None,
+        task_text: "".to_string(),
     };
 
     match adapter.handle_subcommand(arg_view).await {
@@ -336,6 +339,7 @@ pub async fn fund_account(
         command_lines_stop: 1,
         stop_line: 1,
         data: Some(temp_file),
+        task_text: "".to_string(),
     };
 
     match adapter.handle_subcommand(arg_view).await {
