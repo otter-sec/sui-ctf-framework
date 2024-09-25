@@ -103,7 +103,7 @@ pub async fn initialize<'a>(
     accounts: Option<Vec<String>>,
 ) -> SuiTestAdapter {
     // let protocol_version = Some(ProtocolConfig::get_for_version(ProtocolVersion::MAX, Chain::Unknown).version.as_u64());
-    let protocol_version = Some(52_u64);
+    let protocol_version = Some(53_u64);
     let command = (
         InitCommand { named_addresses }, 
         SuiInitArgs { 
