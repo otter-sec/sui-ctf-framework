@@ -111,7 +111,7 @@ pub async fn initialize<'a>(
             protocol_version: protocol_version, 
             max_gas: None,
             shared_object_deletion: None,
-            simulator: true, 
+            simulator: false,
             custom_validator_account: false,
             reference_gas_price: None,
             default_gas_price: None, 
