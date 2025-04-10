@@ -63,7 +63,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
             output.unwrap()
         }
         Err(_error) => {
-            let _ = adapter.cleanup_resources().await;
+            // let _ = adapter.cleanup_resources().await;
             println!("[SERVER] Error viewing the object with ID 0:0");
             return Err("error when viewing the object with ID 0:0".into())
         }
@@ -86,21 +86,20 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
         let _source = &sources[i];
 
         let mod_path = format!("./chall/build/challenge/bytecode_modules/{}.mv", module);
-        let src_path = format!("./chall/build/challenge/source_maps/{}.mvsm", module);
+        let src_path = format!("./chall/build/challenge/debug_info/{}.json", module);
         let mod_bytes: Vec<u8> = std::fs::read(mod_path)?;
 
         let module: CompiledModule = match CompiledModule::deserialize_with_defaults(&mod_bytes) {
             Ok(data) => data,
             Err(e) => {
-                let _ = adapter.cleanup_resources().await;
                 return Err(Box::new(e))
             }
         }; 
+        println!("All good here!");
         let named_addr_opt: Option<Symbol> = Some(Symbol::from("challenge"));
         let source_map: Option<SourceMap> = match source_map_from_file(Path::new(&src_path)) {
             Ok(data) => Some(data),
             Err(e) => {
-                let _ = adapter.cleanup_resources().await;
                 println!("error: {:?}, src_path: {}", e, src_path);
                 return Err("error when generating source map".into())
             }
@@ -127,8 +126,6 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
         Some(addr) => addr,
         None => {
             stream.write("[SERVER] Error publishing module".as_bytes()).unwrap();
-            // drop(stream);
-            let _ = adapter.cleanup_resources().await;
             return Ok(());
         }
     };
@@ -178,7 +175,6 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
             stream.write("[SERVER] Error publishing module".as_bytes()).unwrap();
             // close tcp socket
             drop(stream);
-            let _ = adapter.cleanup_resources().await;
             return Ok(());
         }
     };
@@ -233,7 +229,6 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
     ).await {
         Ok(output) => output,
         Err(e) => {
-            let _ = adapter.cleanup_resources().await;
             println!("[SERVER] error: {e}");
             return Err("error during call to Otter::register".into())
         }
@@ -276,7 +271,6 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
     ).await {
         Ok(output) => output,
         Err(e) => {
-            let _ = adapter.cleanup_resources().await;
             println!("[SERVER] error: {e}");
             return Err("error during call to Otter::register".into())
         }
@@ -313,13 +307,11 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
         }
         Err(error) => {
             stream.write("[SERVER] Invalid Solution!".as_bytes()).unwrap();
-            let _ = adapter.cleanup_resources().await;
             println!("[SERVER] error: {}", error);
             return Err("Error during call to merch_store::has_flag".into())
         }
     };
 
-    let _ = adapter.cleanup_resources().await;
     Ok(())
 }
 

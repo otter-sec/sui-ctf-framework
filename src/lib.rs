@@ -10,6 +10,7 @@ use once_cell::sync::Lazy;
 use tempfile::NamedTempFile;
 use serde_json::Value;
 
+use sui_graphql_rpc::test_infra::cluster::SnapshotLagConfig;
 use sui_transactional_test_runner::{
     args::{
         SuiInitArgs, 
@@ -31,9 +32,10 @@ pub use sui_types::{
     MOVE_STDLIB_ADDRESS, 
     SUI_FRAMEWORK_ADDRESS
 };
-use move_command_line_common::{
+
+use move_core_types::parsing::{
     address::ParsedAddress,
-    values::ParsedValue
+    values::ParsedValue,
 };
 pub use move_compiler::{
     diagnostics::report_diagnostics,
@@ -104,6 +106,11 @@ pub async fn initialize<'a>(
 ) -> SuiTestAdapter {
     // let protocol_version = Some(ProtocolConfig::get_for_version(ProtocolVersion::MAX, Chain::Unknown).version.as_u64());
     let protocol_version = None;
+    let snapshot_config = SnapshotLagConfig {
+        snapshot_min_lag: 5,
+        sleep_duration: 0,
+    };
+
     let command = (
         InitCommand { named_addresses }, 
         SuiInitArgs { 
@@ -115,9 +122,11 @@ pub async fn initialize<'a>(
             custom_validator_account: false,
             reference_gas_price: None,
             default_gas_price: None, 
-            object_snapshot_min_checkpoint_lag: None,
-            object_snapshot_max_checkpoint_lag: None,
-            flavor: None
+            snapshot_config: snapshot_config,
+            flavor: None,
+            epochs_to_keep: None,
+            data_ingestion_path: None,
+            rest_api_url: None,
         });
     let name = "init".to_string();
     let number = 0;
@@ -125,6 +134,8 @@ pub async fn initialize<'a>(
     let command_lines_stop = 1;
     let stop_line = 1;
     let data = None;
+    let command_text = "init --addresses challenge=0x0 solution=0x0";
+    let task_text = "//#".to_owned() + command_text.replace('\n', "\n//#").as_str();
 
     let init_opt: Option<TaskInput<(InitCommand, SuiInitArgs)>> = Some(TaskInput {
         command,
@@ -134,6 +145,7 @@ pub async fn initialize<'a>(
         command_lines_stop,
         stop_line,
         data,
+        task_text,
     });
 
     let default_syntax = SyntaxChoice::Source;
@@ -221,6 +233,9 @@ pub async fn view_object(
     adapter: &mut SuiTestAdapter, 
     id: FakeID
 ) -> Result<Option<serde_json::Value>, Box<dyn error::Error>> {
+    let command_text = "run";
+    let task_text = "//#".to_owned() + command_text.replace('\n', "\n//#").as_str();
+
     let arg_view = TaskInput {
         command: SuiSubcommand::ViewObject(ViewObjectCommand { id }),
         name: "view-object".to_string(),
@@ -229,6 +244,7 @@ pub async fn view_object(
         command_lines_stop: 1,
         stop_line: 1,
         data: None,
+        task_text: task_text,
     };
 
     match adapter.handle_subcommand(arg_view).await {
@@ -321,13 +337,18 @@ pub async fn fund_account(
     let text_to_write = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n//> SplitCoins(Gas, [Input(0)]);\n//> TransferObjects([Result(0)], Input(1))";
     let _ = file.write_all(text_to_write.as_bytes());
     let _ = file.flush();
+    let command_text = "run";
+    let task_text = "//#".to_owned() + command_text.replace('\n', "\n//#").as_str();
 
     let arg_view = TaskInput {
         command: SuiSubcommand::ProgrammableTransaction(ProgrammableTransactionCommand { 
             sender: Some(sender.to_string()), 
+            sponsor: None,
             gas_budget: Some(5000000000), 
             gas_price: Some(1000),
+            gas_payment: None,
             dev_inspect: false,
+            dry_run: false,
             inputs: input,
         }),
         name: "blank".to_string(),
@@ -336,6 +357,7 @@ pub async fn fund_account(
         command_lines_stop: 1,
         stop_line: 1,
         data: Some(temp_file),
+        task_text: task_text,
     };
 
     match adapter.handle_subcommand(arg_view).await {
