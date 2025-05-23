@@ -35,8 +35,7 @@ macro_rules! handle_err {
 
 async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
     // Initialize SuiTestAdapter
-    let modules = vec!["router", "OtterLoan", "OtterSwap", "ctf", "osec", "merch_store"];
-    let sources = vec!["router", "otterloan", "otterswap", "ctf", "osec", "merchstore"];
+    let module_name = "MileHighCity";
     let mut deployed_modules: Vec<AccountAddress> = Vec::new();
 
     let named_addresses = vec![
@@ -52,12 +51,6 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
                 "0x0",
             )?,
         ),
-        (
-            "admin".to_string(),
-            NumericalAddress::parse_str(
-                "0xfccc9a421bbb13c1a66a1aa98f0ad75029ede94857779c6915b44f94068b921e",
-            )?,
-        ),
     ];
 
     let mut suitf = match sui_ctf_framework::SuiTF::initialize(
@@ -68,56 +61,33 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
         Err(e) => handle_err!(stream, "SuiTF initialization failed", e),
     };
 
-    // Check Admin Account
-    let object_output1 : Value = match suitf.view_object(FakeID::Enumerated(0, 0)).await {
-        Ok(output) => {
-            println!("[SERVER] Object Output: {:#?}", output);
-            output.unwrap()
+    // Publish challenge module
+    let mut mncp_modules : Vec<MaybeNamedCompiledModule> = Vec::new();
+    let mod_path = format!("./chall/build/challenge/bytecode_modules/{}.mv", module_name);
+    let src_path = format!("./chall/build/challenge/debug_info/{}.json", module_name);
+    let mod_bytes: Vec<u8> = match std::fs::read(mod_path) {
+        Ok(data) => data,
+        Err(e) => handle_err!(stream, format!("Failed to read {}", module_name), e),
+    };
+
+    let module: CompiledModule = match CompiledModule::deserialize_with_defaults(&mod_bytes) {
+        Ok(data) => data,
+        Err(e) => {
+            return Err(Box::new(e))
         }
-        Err(e) => handle_err!(stream, "Error viewing object 0:0", e),
+    }; 
+    let named_addr_opt: Option<Symbol> = Some(Symbol::from("challenge"));
+    let source_map: Option<SourceMap> = match source_map_from_file(Path::new(&src_path)) {
+        Ok(data) => Some(data),
+        Err(e) => handle_err!(stream, format!("Deserialization failed for {}", module.name()), e),
     };
     
-    let bytes_str = match object_output1.get("Contents")
-        .and_then(|c| c.get("id"))
-        .and_then(|id| id.get("id"))
-        .and_then(|inner| inner.get("bytes"))
-        .and_then(|bytes| bytes.as_str()) {
-            Some(s) => s.to_owned(),
-            None => handle_err!(stream, "Malformed JSON response for object bytes", "missing field"),
-        };
+    mncp_modules.push( MaybeNamedCompiledModule {
+        named_address: named_addr_opt,
+        module: module,
+        source_map: source_map,
+    });
 
-    println!("Objet Bytes: {}", bytes_str);
-
-    let mut mncp_modules : Vec<MaybeNamedCompiledModule> = Vec::new();
-
-    for (module, source) in modules.iter().zip(sources.iter()) {
-        let mod_path = format!("./chall/build/challenge/bytecode_modules/{}.mv", module);
-        let src_path = format!("./chall/build/challenge/debug_info/{}.json", module);
-        let mod_bytes: Vec<u8> = match std::fs::read(mod_path) {
-            Ok(data) => data,
-            Err(e) => handle_err!(stream, format!("Failed to read {}", module), e),
-        };
-
-        let module: CompiledModule = match CompiledModule::deserialize_with_defaults(&mod_bytes) {
-            Ok(data) => data,
-            Err(e) => {
-                return Err(Box::new(e))
-            }
-        }; 
-        let named_addr_opt: Option<Symbol> = Some(Symbol::from("challenge"));
-        let source_map: Option<SourceMap> = match source_map_from_file(Path::new(&src_path)) {
-            Ok(data) => Some(data),
-            Err(e) => handle_err!(stream, format!("Deserialization failed for {}", module.name()), e),
-        };
-        
-        mncp_modules.push( MaybeNamedCompiledModule {
-            named_address: named_addr_opt,
-            module: module,
-            source_map: source_map,
-        });
-    }
-
-    // Publish Challenge Module
     let chall_dependencies: Vec<String> = Vec::new();
     let chall_addr = match suitf.publish_compiled_module(
         mncp_modules,
@@ -131,6 +101,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
     deployed_modules.push(chall_addr);
     println!("[SERVER] Module published at: {:?}", chall_addr); 
 
+    // Read Solution Module
     let mut solution_data = [0 as u8; 2000];
     let _solution_size = match stream.read(&mut solution_data) {
         Ok(size) => {
@@ -195,64 +166,31 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
     .unwrap();
     stream.write_all(output.as_bytes())?;
 
-    // Prepare Function Call Arguments
-    let mut args_liq: Vec<SuiValue> = Vec::new();
-    args_liq.push(SuiValue::Object(FakeID::Enumerated(2, 1), None));
-    args_liq.push(SuiValue::Object(FakeID::Enumerated(2, 5), None));
-    args_liq.push(SuiValue::Object(FakeID::Enumerated(2, 6), None));
+    // Call solve Function
 
-    let mut type_args : Vec<TypeTag> = Vec::new();
-    type_args.push(TypeTag::Struct(Box::new(StructTag {
-        address: chall_addr,
-        module: Identifier::from_str("ctf").unwrap(),
-        name: Identifier::from_str("CTF").unwrap(),
-        type_params: Vec::new(),
-    })));
-    type_args.push(TypeTag::Struct(Box::new(StructTag {
-        address: chall_addr,
-        module: Identifier::from_str("osec").unwrap(),
-        name: Identifier::from_str("OSEC").unwrap(),
-        type_params: Vec::new(),
-    }))); 
-
-    // Call Add Liquidity Function
-    let ret_val = match suitf.call_function(
-        chall_addr,
-        "OtterSwap",
-        "initialize_pool",
-        args_liq,
-        type_args,
-        Some("challenger".to_string()),
-    ).await {
-        Ok(output) => output,
-        Err(e) => handle_err!(stream, "Calling initialize_pool failed", e),
+    let object_output2 : Value = match suitf.view_object(FakeID::Enumerated(0, 0)).await {
+        Ok(output) => {
+            println!("[SERVER] Object Output: {:#?}", output);
+            output.unwrap()
+        }
+        Err(e) => handle_err!(stream, "Error viewing object 1:1", e),
     };
-    println!("[SERVER] Return value {:#?}", ret_val);
-    println!("");
-
-    // Prepare Function Call Arguments
-    let mut args_sol: Vec<SuiValue> = Vec::new();
-    args_sol.push(SuiValue::Object(FakeID::Enumerated(2, 1), None));
-    args_sol.push(SuiValue::Object(FakeID::Enumerated(2, 2), None));
+    let bytes_str2 = match object_output2.get("Contents")
+        .and_then(|c| c.get("id"))
+        .and_then(|id| id.get("id"))
+        .and_then(|inner| inner.get("bytes"))
+        .and_then(|bytes| bytes.as_str()) {
+            Some(s) => s.to_owned(),
+            None => handle_err!(stream, "Malformed JSON response for object bytes", "missing field"),
+        };
+    println!("Objet Bytes: {}", bytes_str2);
 
     let mut type_args_sol : Vec<TypeTag> = Vec::new();
-    type_args_sol.push(TypeTag::Struct(Box::new(StructTag {
-        address: chall_addr,
-        module: Identifier::from_str("ctf").unwrap(),
-        name: Identifier::from_str("CTF").unwrap(),
-        type_params: Vec::new(),
-    })));
-    type_args_sol.push(TypeTag::Struct(Box::new(StructTag {
-        address: chall_addr,
-        module: Identifier::from_str("osec").unwrap(),
-        name: Identifier::from_str("OSEC").unwrap(),
-        type_params: Vec::new(),
-    }))); 
-
-    // Call solve Function
+    let mut args_sol: Vec<SuiValue> = Vec::new();
+    args_sol.push(SuiValue::Object(FakeID::Enumerated(1, 1), None));
     let ret_val = match suitf.call_function(
         sol_addr,
-        "gringotts_solution",
+        "solution",
         "solve",
         args_sol,
         type_args_sol,
@@ -266,18 +204,18 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
 
     // Check Solution
     let mut args2: Vec<SuiValue> = Vec::new();
-    args2.push(SuiValue::Object(FakeID::Enumerated(5, 0), None));
+    args2.push(SuiValue::Object(FakeID::Enumerated(1, 1), None));
 
     let type_args_valid : Vec<TypeTag> = Vec::new();
 
     // Validate Solution
     let _sol_ret = match suitf.call_function(
         chall_addr,
-        "merch_store",
-        "has_flag",
+        "MileHighCity",
+        "check_status",
         args2,
         type_args_valid,
-        Some("solver".to_string()),
+        Some("challenger".to_string()),
     ).await {
         Ok(_output) => {
             println!("[SERVER] Correct Solution!");
@@ -310,7 +248,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 println!("[SERVER] New connection: {}", stream.peer_addr()?);
                     let _ = local.run_until( async move {
                         tokio::task::spawn_local( async {
-                            handle_client(stream).await.unwrap();
+                            if let Err(e) = handle_client(stream).await {
+                                eprintln!("[SERVER] Connection Closed. Error: {}", e);
+                            }
                         }).await.unwrap();
                     }).await;
             }

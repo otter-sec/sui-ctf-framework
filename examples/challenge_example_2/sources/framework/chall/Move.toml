@@ -1,0 +1,10 @@
+[package]
+name = 'challenge'
+version = '1.0.0'
+edition = "2024.alpha"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet" }
+
+[addresses]
+challenge =  "0x0"
