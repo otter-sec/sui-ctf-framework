@@ -21,16 +21,16 @@ clap = { version = "3.1.8", features = ["derive"] }
 diesel-async = { version = "0.5.2", features = ["deadpool", "postgres"] }
 serde = { version = "1.0", features = ["derive"] }
 
-sui-protocol-config = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.48.0", package = "sui-protocol-config"}
-sui-types = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.48.0", package = "sui-types"}
-sui-graphql-rpc = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.48.0", package = "sui-graphql-rpc"}
-sui-transactional-test-runner = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.48.0", package = "sui-transactional-test-runner"}
+sui-protocol-config = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.49.0", package = "sui-protocol-config"}
+sui-types = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.49.0", package = "sui-types"}
+sui-graphql-rpc = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.49.0", package = "sui-graphql-rpc"}
+sui-transactional-test-runner = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.49.0", package = "sui-transactional-test-runner"}
 
-move-symbol-pool = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.48.0", package = "move-symbol-pool" }
-move-stdlib = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.48.0", package = "move-stdlib" }
-move-compiler = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.48.0", package = "move-compiler" }
-move-binary-format = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.48.0", package = "move-binary-format" }
-move-command-line-common = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.48.0", package = "move-command-line-common" }
-move-transactional-test-runner = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.48.0", package = "move-transactional-test-runner" }
-move-core-types = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.48.0", package = "move-core-types" }
-move-bytecode-source-map = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.48.0", package = "move-bytecode-source-map" }
+move-symbol-pool = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.49.0", package = "move-symbol-pool" }
+move-stdlib = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.49.0", package = "move-stdlib" }
+move-compiler = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.49.0", package = "move-compiler" }
+move-binary-format = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.49.0", package = "move-binary-format" }
+move-command-line-common = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.49.0", package = "move-command-line-common" }
+move-transactional-test-runner = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.49.0", package = "move-transactional-test-runner" }
+move-core-types = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.49.0", package = "move-core-types" }
+move-bytecode-source-map = { git = "https://github.com/MystenLabs/sui", tag = "devnet-v1.49.0", package = "move-bytecode-source-map" }

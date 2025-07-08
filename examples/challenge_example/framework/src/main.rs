@@ -310,7 +310,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 println!("[SERVER] New connection: {}", stream.peer_addr()?);
                     let _ = local.run_until( async move {
                         tokio::task::spawn_local( async {
-                            if let Err(e) = handle_client(stream).await.unwrap() {
+                            if let Err(e) = handle_client(stream).await {
                                 eprintln!("[SERVER] Connection Closed. Error: {}", e);
                             }
                         }).await.unwrap();

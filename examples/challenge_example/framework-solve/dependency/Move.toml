@@ -7,5 +7,5 @@ edition = "2024.alpha"
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet" }
 
 [addresses]
-challenge =  "0x57e5f61421e616b3661b6223b1babbcd50c2cf102d762faf932ab3b0de17d763"
+challenge =  "0xffb3399bdd3fdac706232c5e919b19e95dcaadfe2daf574a4ce651d02b7521a8"
 admin = "0xfccc9a421bbb13c1a66a1aa98f0ad75029ede94857779c6915b44f94068b921e"
