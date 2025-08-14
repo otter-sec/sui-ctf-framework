@@ -1,0 +1,12 @@
+[package]
+name = "challenge"
+edition = "2024.beta"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "devnet-v1.49.0" }
+MoveStdlib = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/move-stdlib", rev = "devnet-v1.49.0" }
+
+[addresses]
+challenge = "0x134620dbb8a942881a4265f0db9b83f1a7db5669293a707c573bd6ad3b59c489"
+std = "0x1"
+sui = "0x2"
